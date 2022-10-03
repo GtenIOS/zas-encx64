@@ -190,13 +190,10 @@ pub fn Instr(comptime count: comptime_int) type {
             var modrm_byte_idx = bytes.items.len;
             // Encode operands
             for (opers) |oper, i| {
-                switch (try oper.encode(allocator, self.encoding, @intCast(u8, i), po_byte, modrm_byte, rex_byte)) {
-                    .slice => |bys| try bytes.appendSlice(bys),
-                    .arr => |arr| {
-                        defer arr.deinit();
-                        try bytes.appendSlice(arr.items);
-                    },
-                }
+                const arr = try oper.encode(allocator, self.encoding, @intCast(u8, i), po_byte, modrm_byte, rex_byte);
+                defer arr.deinit();
+                errdefer arr.deinit();
+                try bytes.appendSlice(arr.items);
             }
 
             // Add ModR/M byte if required

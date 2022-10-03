@@ -330,13 +330,13 @@ pub const Register = union(enum) {
         }
     }
 
-    pub inline fn encode(self: Self, encoding: OperandEncoding, oper_idx: u8, po_byte: *u8, modrm_byte: ?*u8, rex_byte: ?*u8) ![]const u8 {
-        switch (encoding) {
-            .d => |val| return &[_]u8{0b11000000 | (@intCast(u8, val) << 3) | self.idx()},
-            .ri => {
-                po_byte.* += self.idx();
-                return &[_]u8{};
-            },
+    pub inline fn encode(self: Self, allocator: std.mem.Allocator, encoding: OperandEncoding, oper_idx: u8, po_byte: *u8, modrm_byte: ?*u8, rex_byte: ?*u8) !std.ArrayList(u8) {
+        var bytes_array = std.ArrayList(u8).init(allocator);
+        errdefer bytes_array.deinit();
+
+        try switch (encoding) {
+            .d => |val| bytes_array.append(0b11000000 | (@intCast(u8, val) << 3) | self.idx()),
+            .ri => po_byte.* += self.idx(),
             .rm => {
                 if (modrm_byte) |modrm_b| {
                     var r_idx = self.idx();
@@ -345,18 +345,17 @@ pub const Register = union(enum) {
                         if (rex_byte) |rex_b| {
                             rex_b.* |= if (oper_idx == 0) @enumToInt(Prefix.RexR) else @enumToInt(Prefix.RexB);
                         } else {
-                            return error.MissingRexByte;   
+                            return error.MissingRexByte;
                         }
                     }
-                    
+
                     if (oper_idx == 1) {
                         // Found register at rm operand, hence
                         // Set mode to Register Direct addressing mode
-                        modrm_b.* |= 0b11 << 6; 
+                        modrm_b.* |= 0b11 << 6;
                     }
 
                     modrm_b.* |= if (oper_idx == 0) r_idx << 3 else r_idx;
-                    return &[_]u8{};
                 } else {
                     return error.MissingModRmByte;
                 }
@@ -369,28 +368,29 @@ pub const Register = union(enum) {
                         if (rex_byte) |rex_b| {
                             rex_b.* |= if (oper_idx == 0) @enumToInt(Prefix.RexB) else @enumToInt(Prefix.RexR);
                         } else {
-                            return error.MissingRexByte;   
+                            return error.MissingRexByte;
                         }
                     }
 
                     if (oper_idx == 0) {
                         // Found register at rm operand, hence
                         // Set mode to Register Direct addressing mode
-                        modrm_b.* |= 0b11 << 6; 
+                        modrm_b.* |= 0b11 << 6;
                     }
 
                     modrm_b.* |= if (oper_idx == 0) r_idx else r_idx << 3;
-                    return &[_]u8{};
                 } else {
                     return error.MissingModRmByte;
                 }
             },
-            .rmo, .mor, .po => return &[_]u8{},
+            .rmo, .mor, .po => {},
             else => {
-                std.log.err("{s}:{d}", .{encoding.typeStr(), oper_idx});
+                std.log.err("{s}:{d}", .{ encoding.typeStr(), oper_idx });
                 return error.InvalidRegisterEncoding;
             },
-        }
+        };
+
+        return bytes_array;
     }
 
     const RegId = struct {
@@ -708,7 +708,7 @@ pub const Register = union(enum) {
             return reg;
         } else return null;
     }
-    
+
     pub inline fn isSegReg(reg: Register) bool {
         switch (reg) {
             .regES....regFS => return true,

@@ -6,11 +6,6 @@ const MOffset = @import("./mem.zig").MOffset;
 const Rel = @import("./mem.zig").Rel;
 const Pntr = @import("./pntr.zig").Pntr;
 
-pub const EncodeResult = union(enum) {
-    slice: []const u8,
-    arr: std.ArrayList(u8),
-};
-
 pub const RegMem = union(enum) {
     reg: Register,
     mem: Memory,
@@ -34,10 +29,10 @@ pub const RegMem = union(enum) {
         }
     }
 
-    pub inline fn encode(self: Self, allocator: std.mem.Allocator, encoding: OperandEncoding, oper_idx: u8, po_byte: *u8, modrm_byte: ?*u8, rex_byte: ?*u8) !EncodeResult {
+    pub inline fn encode(self: Self, allocator: std.mem.Allocator, encoding: OperandEncoding, oper_idx: u8, po_byte: *u8, modrm_byte: ?*u8, rex_byte: ?*u8) !std.ArrayList(u8) {
         switch (self) {
-            .reg => |rval| return EncodeResult{ .slice = try rval.encode(encoding, oper_idx, po_byte, modrm_byte, rex_byte) },
-            .mem => |mval| return EncodeResult{ .arr = try mval.encode(allocator, modrm_byte, rex_byte) },
+            .reg => |rval| return try rval.encode(allocator, encoding, oper_idx, po_byte, modrm_byte, rex_byte),
+            .mem => |mval| return try mval.encode(allocator, modrm_byte, rex_byte),
         }
     }
 };
@@ -105,15 +100,15 @@ pub const Operand = union(enum) {
         }
     }
 
-    pub inline fn encode(self: Self, allocator: std.mem.Allocator, encoding: OperandEncoding, oper_idx: u8, po_byte: *u8, modrm_byte: ?*u8, rex_byte: ?*u8) !EncodeResult {
+    pub inline fn encode(self: Self, allocator: std.mem.Allocator, encoding: OperandEncoding, oper_idx: u8, po_byte: *u8, modrm_byte: ?*u8, rex_byte: ?*u8) !std.ArrayList(u8) {
         switch (self) {
-            .imm => |ival| return EncodeResult{ .slice = try ival.encode() },
-            .reg => |rval| return EncodeResult{ .slice = try rval.encode(encoding, oper_idx, po_byte, modrm_byte, rex_byte) },
-            .mem => |mval| return EncodeResult{ .arr = try mval.encode(allocator, modrm_byte, rex_byte) },
+            .imm => |ival| return try ival.encode(allocator),
+            .reg => |rval| return try rval.encode(allocator, encoding, oper_idx, po_byte, modrm_byte, rex_byte),
+            .mem => |mval| return try mval.encode(allocator, modrm_byte, rex_byte),
             .rm => |rmval| return rmval.encode(allocator, encoding, oper_idx, po_byte, modrm_byte, rex_byte),
-            .mofst => |mofst| return EncodeResult{ .slice = try mofst.encode() },
-            .rel => |rel| return EncodeResult{ .slice = try rel.encode() },
-            .pntr => |pntr| return EncodeResult{ .slice = pntr.encode() },
+            .mofst => |mofst| return try mofst.encode(allocator),
+            .rel => |rel| return try rel.encode(allocator),
+            .pntr => |pntr| return try pntr.encode(allocator),
         }
     }
 

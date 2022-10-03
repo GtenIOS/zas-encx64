@@ -10,10 +10,10 @@ pub const Displacement = union(enum) {
     disp32: u32,
     const Self = @This();
 
-    pub inline fn encode(self: Self) ![]const u8 {
+    pub inline fn encode(self: Self, allocator: std.mem.Allocator) !std.ArrayList(u8) {
         switch (self) {
-            .disp8 => |ival| return byte_oper.intToLEBytes(u8, ival),
-            .disp32 => |ival| return byte_oper.intToLEBytes(u32, ival),
+            .disp8 => |ival| return try byte_oper.intToLEBytes(u8, allocator, ival),
+            .disp32 => |ival| return try byte_oper.intToLEBytes(u32, allocator, ival),
         }
     }
 
@@ -69,12 +69,12 @@ pub const MOffset = union(enum) {
         }
     }
 
-    pub inline fn encode(self: Self) ![]const u8 {
+    pub inline fn encode(self: Self, allocator: std.mem.Allocator) !std.ArrayList(u8) {
         switch (self) {
-            .mofst8 => |ival| return byte_oper.intToLEBytes(u8, ival),
-            .mofst16 => |ival| return byte_oper.intToLEBytes(u16, ival),
-            .mofst32 => |ival| return byte_oper.intToLEBytes(u32, ival),
-            .mofst64 => |ival| return byte_oper.intToLEBytes(u64, ival),
+            .mofst8 => |ival| return try byte_oper.intToLEBytes(u8, allocator, ival),
+            .mofst16 => |ival| return try byte_oper.intToLEBytes(u16, allocator, ival),
+            .mofst32 => |ival| return try byte_oper.intToLEBytes(u32, allocator, ival),
+            .mofst64 => |ival| return try byte_oper.intToLEBytes(u64, allocator, ival),
             .mofst => return error.MustBeResolvedToASizedVariant,
         }
     }
@@ -164,11 +164,11 @@ pub const Rel = union(enum) {
         }
     }
 
-    pub inline fn encode(self: Self) ![]const u8 {
+    pub inline fn encode(self: Self, allocator: std.mem.Allocator) !std.ArrayList(u8) {
         switch (self) {
-            .rel8 => |ival| return byte_oper.intToLEBytes(u8, ival),
-            .rel16 => |ival| return byte_oper.intToLEBytes(u16, ival),
-            .rel32 => |ival| return byte_oper.intToLEBytes(u32, ival),
+            .rel8 => |ival| return try byte_oper.intToLEBytes(u8, allocator, ival),
+            .rel16 => |ival| return try byte_oper.intToLEBytes(u16, allocator, ival),
+            .rel32 => |ival| return try byte_oper.intToLEBytes(u32, allocator, ival),
             .rel => return error.MustBeResolvedToASizedVariant,
         }
     }
@@ -346,7 +346,10 @@ const Sib = struct {
 
         // Encode displacement
         if (self.displacement) |disp| {
-            try bytes_array.appendSlice(try disp.encode());
+            const bytes_disp = try disp.encode(allocator);
+            defer bytes_disp.deinit();
+            errdefer bytes_disp.deinit();
+            try bytes_array.appendSlice(bytes_disp.items);
             // Check if 32-bit displacement mode actually has a 32 bit displacement
             if (self.base) |b| {
                 if (b.isRip() and disp.is8Bit()) {
