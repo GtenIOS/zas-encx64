@@ -271,7 +271,7 @@ pub const Register = union(enum) {
 
     pub inline fn ripSize(self: Self) ?u8 {
         switch (self) {
-            .rip => |size| return size,
+            .rip => |sz| return sz,
             else => return null,
         }
     }

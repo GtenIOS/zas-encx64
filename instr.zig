@@ -159,7 +159,7 @@ pub fn Instr(comptime count: comptime_int) type {
             }
         }
 
-        inline fn encode(self: Self, allocator: std.mem.Allocator, opers: []const Operand, op_mode: OperatingMode, prefix: ?Prefix) !std.ArrayList(u8) {
+        fn encode(self: Self, allocator: std.mem.Allocator, opers: []const Operand, op_mode: OperatingMode, prefix: ?Prefix) !std.ArrayList(u8) {
             var bytes = std.ArrayList(u8).init(allocator);
             errdefer bytes.deinit();
 
